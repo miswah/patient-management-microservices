@@ -1,6 +1,8 @@
 package com.miswah.patientservice.service.impl;
 
 
+import com.miswah.patientservice.Exception.EmailAlreadyExistsException;
+import com.miswah.patientservice.Exception.PatientNotFoundException;
 import com.miswah.patientservice.dto.request.PatientRequestDTO;
 import com.miswah.patientservice.dto.response.PatientResponseDTO;
 import com.miswah.patientservice.model.Patient;
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class PatientServiceImpl implements PatientService {
@@ -29,8 +32,36 @@ public class PatientServiceImpl implements PatientService {
     }
 
     @Override
-    public void savePatient(PatientRequestDTO dto) {
-        this.patientRepository.save(this.convertToModel(dto));
+    public PatientResponseDTO savePatient(PatientRequestDTO dto) {
+        if(this.patientRepository.existsByEmail(dto.email())){
+            throw new EmailAlreadyExistsException("A patient with this email already exists "+dto.email());
+        }
+        return convertToDto(this.patientRepository.save(this.convertToModel(dto)));
+    }
+
+    @Override
+    public PatientResponseDTO updatePatient(UUID id, PatientRequestDTO dto) {
+        Patient model = this.patientRepository.findById(id).orElseThrow(() -> new PatientNotFoundException("Patient not found for id "+ id));
+
+        if(this.patientRepository.existsByEmailAndIdNot(dto.email(), id)){
+            throw new EmailAlreadyExistsException("A patient with this email already exists "+dto.email());
+        }
+
+        model.setName(dto.name());
+        model.setEmail(dto.email());
+        model.setAddress(dto.address());
+        model.setDateOfBirth(LocalDate.parse(dto.dateOfBirth()));
+
+        this.patientRepository.save(model);
+
+        return convertToDto(model);
+    }
+
+    @Override
+    public void deletePatient(UUID id) {
+        Patient model = this.patientRepository.findById(id).orElseThrow(() -> new PatientNotFoundException("Patient not found for id "+ id));
+
+        this.patientRepository.delete(model);
     }
 
     private static PatientResponseDTO convertToDto(Patient model){
