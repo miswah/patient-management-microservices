@@ -1,0 +1,9 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="PatientServiceApplication" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="com.miswah.patientservice.PatientServiceApplication" />
+    <module name="patient-service" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
