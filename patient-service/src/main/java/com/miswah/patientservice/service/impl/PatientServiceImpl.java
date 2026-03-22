@@ -1,13 +1,17 @@
 package com.miswah.patientservice.service.impl;
 
 
+import billing.BillingResponse;
 import com.miswah.patientservice.Exception.EmailAlreadyExistsException;
 import com.miswah.patientservice.Exception.PatientNotFoundException;
 import com.miswah.patientservice.dto.request.PatientRequestDTO;
 import com.miswah.patientservice.dto.response.PatientResponseDTO;
+import com.miswah.patientservice.grpc.BillingServiceGrpcClient;
 import com.miswah.patientservice.model.Patient;
 import com.miswah.patientservice.repository.PatientRepository;
 import com.miswah.patientservice.service.PatientService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -19,9 +23,13 @@ import java.util.UUID;
 public class PatientServiceImpl implements PatientService {
 
     private final PatientRepository patientRepository;
+    private final BillingServiceGrpcClient billingServiceGrpcClient;
+
+    private static final Logger log = LoggerFactory.getLogger(PatientServiceImpl.class);
 
     @Autowired
-    PatientServiceImpl(PatientRepository patientRepository){
+    PatientServiceImpl(PatientRepository patientRepository, BillingServiceGrpcClient billingServiceGrpcClient){
+        this.billingServiceGrpcClient = billingServiceGrpcClient;
         this.patientRepository = patientRepository;
     }
 
@@ -36,7 +44,11 @@ public class PatientServiceImpl implements PatientService {
         if(this.patientRepository.existsByEmail(dto.email())){
             throw new EmailAlreadyExistsException("A patient with this email already exists "+dto.email());
         }
-        return convertToDto(this.patientRepository.save(this.convertToModel(dto)));
+        Patient patient = this.patientRepository.save(this.convertToModel(dto));
+        BillingResponse billingServiceResponse = this.billingServiceGrpcClient.createBillingAccount(patient.getId().toString(), patient.getName(), patient.getEmail());
+
+        log.info("Response received from billin service {}", billingServiceResponse);
+        return convertToDto(patient);
     }
 
     @Override
