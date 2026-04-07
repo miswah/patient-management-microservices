@@ -7,6 +7,7 @@ import com.miswah.patientservice.Exception.PatientNotFoundException;
 import com.miswah.patientservice.dto.request.PatientRequestDTO;
 import com.miswah.patientservice.dto.response.PatientResponseDTO;
 import com.miswah.patientservice.grpc.BillingServiceGrpcClient;
+import com.miswah.patientservice.kafka.KafkaProducer;
 import com.miswah.patientservice.model.Patient;
 import com.miswah.patientservice.repository.PatientRepository;
 import com.miswah.patientservice.service.PatientService;
@@ -24,13 +25,15 @@ public class PatientServiceImpl implements PatientService {
 
     private final PatientRepository patientRepository;
     private final BillingServiceGrpcClient billingServiceGrpcClient;
+    private final KafkaProducer kafkaProducer;
 
     private static final Logger log = LoggerFactory.getLogger(PatientServiceImpl.class);
 
     @Autowired
-    PatientServiceImpl(PatientRepository patientRepository, BillingServiceGrpcClient billingServiceGrpcClient){
+    PatientServiceImpl(PatientRepository patientRepository, BillingServiceGrpcClient billingServiceGrpcClient, KafkaProducer kafkaProducer){
         this.billingServiceGrpcClient = billingServiceGrpcClient;
         this.patientRepository = patientRepository;
+        this.kafkaProducer = kafkaProducer;
     }
 
     @Override
@@ -46,6 +49,7 @@ public class PatientServiceImpl implements PatientService {
         }
         Patient patient = this.patientRepository.save(this.convertToModel(dto));
         BillingResponse billingServiceResponse = this.billingServiceGrpcClient.createBillingAccount(patient.getId().toString(), patient.getName(), patient.getEmail());
+        this.kafkaProducer.sendEvent(patient);
 
         log.info("Response received from billin service {}", billingServiceResponse);
         return convertToDto(patient);
