@@ -30,5 +30,13 @@ services:
     depends_on:
       - kafka
 
-
+  analytics-service:
+    image: patient-analytics-service:latest
+    container_name: patient-analytics-service
+    ports:
+      - "4002:4002"
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
 #  docker compose up -d
