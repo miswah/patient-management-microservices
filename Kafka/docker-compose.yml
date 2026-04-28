@@ -18,6 +18,29 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_NUM_PARTITIONS: 3
+    networks:
+      - app-network
+
+  mariadb:
+    image: mariadb:10.3
+    container_name: mariadb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: mypass
+      MYSQL_DATABASE: patient_management
+      MYSQL_USER: root
+      MYSQL_PASSWORD: mypass
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./data/mariadb:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-pmypass" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -29,14 +52,74 @@ services:
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
     depends_on:
       - kafka
+    networks:
+      - app-network
 
   analytics-service:
-    image: patient-analytics-service:latest
+    build:
+      context: ../analytics-service
+      dockerfile: Dockerfile
+    image: analytics-service:latest
     container_name: patient-analytics-service
     ports:
       - "4002:4002"
     depends_on:
-      - kafka
+      mariadb:
+        condition: service_healthy
+      kafka:
+        condition: service_started
     environment:
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb:3306/patient_management
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: mypass
+    networks:
+      - app-network
+
+  patient-service:
+    build:
+      context: ../patient-service
+      dockerfile: Dockerfile
+    image: patient-service:latest
+    container_name: patient-service
+    ports:
+      - "4000:4000"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb:3306/patient_management
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: mypass
+    networks:
+      - app-network
+
+  billing-service:
+    build:
+      context: ../billing-service
+      dockerfile: Dockerfile
+    image: billing-service:latest
+    container_name: billing-service
+    ports:
+      - "4001:4001"
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      kafka:
+        condition: service_started
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb:3306/patient_management
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: mypass
+    networks:
+      - app-network
 #  docker compose up -d
+#  docker compose build analytics-service
+#  docker compose up -d analytics-service
+#  docker compose logs -f analytics-service
+networks:
+  app-network:
