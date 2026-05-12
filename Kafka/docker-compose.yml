@@ -117,9 +117,23 @@ services:
       SPRING_DATASOURCE_PASSWORD: mypass
     networks:
       - app-network
+
+  api-gateway:
+    build:
+      context: ../patient-service-api-gatway
+      dockerfile: Dockerfile
+    image: api-gateway:latest
+    container_name: api-gateway
+    ports:
+      - "4004:4004"
+    networks:
+      - app-network
+
+
 #  docker compose up -d
 #  docker compose build analytics-service
 #  docker compose up -d analytics-service
 #  docker compose logs -f analytics-service
+#  docker restart api-gateway
 networks:
   app-network:
